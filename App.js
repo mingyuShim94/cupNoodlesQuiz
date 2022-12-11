@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Text, View, Image, TouchableOpacity } from 'react-native';
+import { Text, View, Image, TouchableOpacity, TextInput } from 'react-native';
 import styled from 'styled-components/native';
 
 const WindowContainer = styled.View`
@@ -7,7 +7,7 @@ const WindowContainer = styled.View`
   background-color:blue;
 `;
 const QuizContainer = styled.View`
-  flex:0.6;
+  flex:0.5;
   background-color:red;
 `;
 const AnswerContainer = styled.View`
@@ -17,66 +17,39 @@ const AnswerContainer = styled.View`
   align-items:center;
   flex-direction:row;
 `;
-const AnswerSquare = styled.TouchableOpacity`
-  width:50;
-  height:50;
-  background-color:red;
-  borderRadius:15;
-  marginHorizontal:7;
-  justify-content:center;
-  align-items:center;
+const AnswerInput = styled.TextInput`
+  background-color:white;
+  border-radius:10px;
+  padding:10px 20px;
+  font-size:18px
 `;
-const WordContainer = styled.View`
-  flex:0.2;
+const HintsContainer = styled.View`
+  flex:0.3;
   background-color:skyblue;
-`;
-const WordsRow1 = styled.View`
-  flex:0.5;
-  background-color: pink;
   justify-content:center;
   align-items:center;
-  flex-direction:row;
-`;
-const WordsRow2 = styled.View`
-  flex:0.5;
-  background-color: purple;
-  justify-content:center;
-  align-items:center;
-  flex-direction:row;
-`;
-const WordSquare = styled.TouchableOpacity`
-  width:50;
-  height:50;
-  background-color:blue;
-  borderRadius:15;
-  marginHorizontal:4;
-  justify-content:center;
-  align-items:center;
-`;
-const WordStyle = styled.Text`
-  font-size:20;
 `;
 const AdsContainer = styled.View`
   flex:0.1;
   background-color:black;
 `;
-
-const words1 = ['김', '신', '라', '콩', '튀', '너', '윤'];
-const words2 = ['면', '망', '통', '선', '깨', '음', '미'];
-
+const HintButton = styled.View`
+  background-color:white;
+  border-radius:20px;
+  width: 250px;
+  height:80px;
+  marginVertical:10px;
+  justify-content:center;
+  align-items:center;
+`;
+const HintTextStyle = styled.Text`
+  fontSize: 30px;
+`;
 export default function App() {
-  const [answerArr, setAnswerArr] = useState(
-    Array.from({ length: 3 }, (v, i) => null)
-  );
-  const answerPush = (word) => {
-    //console.info(answerArr);
-    let findIndex = answerArr.findIndex((item) => item === null);
-    if (findIndex == -1) return null;
-    const temp = [...answerArr];
-    temp[findIndex] = word;
-    //console.info(temp);
-    setAnswerArr(temp);
-    console.info(temp);
+  const [myAnswer, setMyAnswer] = useState('');
+  const [answer, setAnswer] = useState('신라면');
+  const checkAnswer = () => {
+    myAnswer == answer ? alert('정답') : (alert('오답'), setMyAnswer(''));
   };
   return (
     <WindowContainer>
@@ -87,28 +60,21 @@ export default function App() {
         />
       </QuizContainer>
       <AnswerContainer>
-        {answerArr.map((data, idx) => (
-          <AnswerSquare>
-            <WordStyle>{data}</WordStyle>
-          </AnswerSquare>
-        ))}
+        <AnswerInput
+          placeholder="무슨 컵라면 일까요?"
+          onChangeText={(newText) => setMyAnswer(newText)}
+          value={myAnswer}
+          onSubmitEditing={() => checkAnswer()}
+        />
       </AnswerContainer>
-      <WordContainer>
-        <WordsRow1>
-          {words1.map((data, idx) => (
-            <WordSquare onPress={() => answerPush(data)}>
-              <WordStyle>{data}</WordStyle>
-            </WordSquare>
-          ))}
-        </WordsRow1>
-        <WordsRow2>
-          {words2.map((data, idx) => (
-            <WordSquare onPress={() => answerPush(data)}>
-              <WordStyle>{data}</WordStyle>
-            </WordSquare>
-          ))}
-        </WordsRow2>
-      </WordContainer>
+      <HintsContainer>
+        <HintButton>
+          <HintTextStyle>ㅅㄹㅁ</HintTextStyle>
+        </HintButton>
+        <HintButton>
+          <HintTextStyle>고구려백제OO</HintTextStyle>
+        </HintButton>
+      </HintsContainer>
       <AdsContainer></AdsContainer>
     </WindowContainer>
   );

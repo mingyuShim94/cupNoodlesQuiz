@@ -11,11 +11,9 @@
     "expo-status-bar": "~1.4.0",
     "react": "18.0.0",
     "react-native": "0.69.6",
+    "react-native-android-keyboard-adjust": "*",
     "react-is": "^16.8.0",
-    "expo-constants": "~13.2.4",
-    "styled-components": "*",
-    "@expo/vector-icons": "^13.0.0",
-    "react-native-paper": "4.9.2"
+    "styled-components": "5.3.6"
   },
   "devDependencies": {
     "@babel/core": "^7.12.9"
