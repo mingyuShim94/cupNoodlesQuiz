@@ -1,15 +1,14 @@
 {
   "expo": {
-    "name": "cupnoodlesquiz",
-    "slug": "snack-183f9a92-35c6-40b8-8f47-79474bf85d69",
+    "name": "컵라면퀴즈",
+    "slug": "cupNoodlesQuiz",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "icon": "./assets/adaptive-icon.png",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#62629D"
     },
     "updates": {
       "fallbackToCacheTimeout": 0
@@ -21,13 +20,14 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.ChangSics.BigDataApp",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FFFFFF"
-      }
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
+        "backgroundColor": "#62629D"
+      },
+      "permissions": [],
+      "googleMobileAdsAppId": "ca-app-pub-8647279125417942~8904835533"
     }
   }
 }
