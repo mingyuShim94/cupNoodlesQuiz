@@ -1,6 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import Quiz from './Quiz';
+import Stack from './Navigation/Stack';
+import { NavigationContainer } from '@react-navigation/native';
 
 export default function App() {
-  return <Quiz />;
+  return (
+    <NavigationContainer>
+      <Stack />
+    </NavigationContainer>
+  );
 }
