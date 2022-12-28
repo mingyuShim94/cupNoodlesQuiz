@@ -6,44 +6,99 @@ import {
   FlatList,
   Dimensions,
   SafeAreaView,
+  Image,
 } from 'react-native';
 import styled from 'styled-components/native';
-import {
-  AdMobBanner,
-  AdMobInterstitial,
-  PublisherBanner,
-  AdMobRewarded,
-  setTestDeviceIDAsync,
-} from 'expo-ads-admob';
+import problemList from '../assets/problemList';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { StatusBar } from 'expo-status-bar';
+const STORAGE_KEY_RECORD = '@my_record';
 const WindowWidth = Dimensions.get('window').width;
-const data = [
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-];
+import { Audio } from 'expo-av';
+const StageSelect = ({ navigation: { navigate, addListener } }) => {
+  const [record, setRecord] = useState(
+    Array.from({ length: problemList.length }, () => false)
+  );
+  const [clickSound, setClickSound] = useState();
 
-const StageSelect = ({ navigation: { navigate } }) => {
+  useEffect(() => {
+    const goBackListener = addListener('focus', () => {
+      getRecordData();
+      return goBackListener;
+    });
+  }, []);
+
+  const clickSoundPlay = async () => {
+    console.log('Loading Sound');
+    const { sound } = await Audio.Sound.createAsync(
+      require('../assets/Audio/click.mp3')
+    );
+    setClickSound(sound);
+
+    console.log('Playing Sound');
+    await sound.playAsync();
+  };
+
+  const getRecordData = async () => {
+    try {
+      const value = await AsyncStorage.getItem(STORAGE_KEY_RECORD);
+      if (value == null) {
+        return;
+      } else {
+        setRecord(JSON.parse(value));
+      }
+    } catch (e) {
+      alert(e);
+    }
+  };
   return (
     <WindowContainer>
+      <StatusBar style="light" backgroundColor="black" />
       <FlatList
-        data={data}
+        data={problemList}
         numColumns={3}
+        keyExtractor={(item) => item.id + ''}
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         columnWrapperStyle={{
-          justifyContent: 'space-between',
+          justifyContent: 'space-around',
         }}
-        renderItem={(item) => (
+        renderItem={({ item, index }) => (
           <StageView
-            onPress={() => navigate('Quiz', { stageIndex: item.index })}>
-            <IndexText>{item.index + 1}</IndexText>
+            onPress={() => {
+              clickSoundPlay();
+              navigate('Quiz', { stageIndex: index });
+            }}>
+            {record[index] == false ? (
+              <Image
+                style={{
+                  height: '100%',
+                  width: '100%',
+                  resizeMode: 'contain',
+                }}
+                source={require('../assets/cupIilust.jpg')}
+              />
+            ) : (
+              <Image
+                style={{
+                  height: '100%',
+                  width: '100%',
+                  resizeMode: 'contain',
+                }}
+                source={item.img}
+              />
+            )}
+
+            <IndexText>{index + 1}</IndexText>
           </StageView>
         )}
       />
     </WindowContainer>
   );
 };
-
+// <Image
+//                 style={{ height: '100%', width: '100%', resizeMode: 'contain' }}
+//                 source={item.img}
+//               />
 export default StageSelect;
 
 const WindowContainer = styled.View`
@@ -65,4 +120,5 @@ const IndexText = styled.Text`
   background-color:white;
   alignSelf:flex-start
   border-radius:5px;
+  position:absolute;
 `;

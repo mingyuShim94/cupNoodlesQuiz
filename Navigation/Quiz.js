@@ -2,7 +2,6 @@ import React, { useEffect, useState, useRef } from 'react';
 import {
   Text,
   View,
-  Image,
   TouchableOpacity,
   TextInput,
   Dimensions,
@@ -13,12 +12,18 @@ import {
   Platform,
   Animated,
   PanResponder,
+  Image,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import styled from 'styled-components/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 const WindowHeight = Dimensions.get('window').height;
 const WindowWidth = Dimensions.get('window').width;
-const STORAGE_KEY = '@my_coins';
+const STORAGE_KEY_COIN = '@my_coins';
+const STORAGE_KEY_RECORD = '@my_record';
+import problemList from '../assets/problemList';
+import hintInitialList from '../assets/hintInitialList';
 import { FontAwesome } from '@expo/vector-icons';
 import {
   AdMobBanner,
@@ -27,147 +32,94 @@ import {
   AdMobRewarded,
   setTestDeviceIDAsync,
 } from 'expo-ads-admob';
+import { Audio } from 'expo-av';
 import Modal from 'react-native-modal';
-
-const problemList = [
-  { text: '신라면', img: require('../assets/shin.jpg') },
-  { text: '불닭볶음면', img: require('../assets/buldak.jpg') },
-];
-const hintList = [
-  { initial: 'ㅅㄹㅁ', association: '고구려백제ㅇㅇ' },
-  { initial: 'ㅂㄷㅂㅇㅁ', association: '투블럭 암탉' },
-];
-const Quiz = ({ route }) => {
-  //console.info(route.params.stageIndex);
+import { SafeAreaView } from 'react-native-safe-area-context';
+//
+const tempHintInitialList = Array.from(hintInitialList);
+const Quiz = ({ route, navigation: { goBack } }) => {
+  const [trueSound, setTrueSound] = useState();
+  const [wrongSound, setWrongSound] = useState();
+  const [clickSound, setClickSound] = useState();
   const bannerRef = useRef(null);
+  const [stage, setStage] = useState(route.params.stageIndex);
+  const [hintLevel, setHintLevel] = useState(false);
+  const [hintText, setHintText] = useState('');
+  const [hintIndex, setHintIndex] = useState(
+    Array.from({ length: tempHintInitialList[stage].length }, (v, i) => i)
+  );
   const [isModalVisible, setModalVisible] = useState(false);
   const [myAnswer, setMyAnswer] = useState('');
-  const [stage, setStage] = useState(route.params.stageIndex);
   const [blur, setBlur] = useState(true);
   const [coin, setCoin] = useState(0);
+  const [record, setRecord] = useState(
+    Array.from({ length: problemList.length }, () => false)
+  );
   const coinData = useRef(0);
-  const scale1 = useRef(new Animated.Value(1)).current;
-  const position1 = useRef(new Animated.Value(0)).current;
-  const onPressOut1 = Animated.spring(scale1, {
-    toValue: 1,
-    useNativeDriver: true,
-  });
-  const onPressIn1 = Animated.spring(scale1, {
-    toValue: 0.95,
-    useNativeDriver: true,
-  });
-  const goCenter1 = Animated.spring(position1, {
-    toValue: 0,
-    useNativeDriver: true,
-  });
-  const goLeft1 = Animated.spring(position1, {
-    toValue: -500,
-    tension: 5,
-    useNativeDriver: true,
-    restDisplacementThreshold: 200,
-    restSpeedThreshold: 200,
-  });
-  const goRight1 = Animated.spring(position1, {
-    toValue: 500,
-    tension: 5,
-    useNativeDriver: true,
-    restDisplacementThreshold: 200,
-    restSpeedThreshold: 200,
-  });
-  const useCoin = () => {
+  const coinUse = () => {
     setCoin((prev) => prev - 10);
     coinData.current -= 10;
     storeCoinData();
   };
-  const reCover = () => {
-    position1.setValue(0);
-    position2.setValue(0);
-    scale1.setValue(1);
-    scale2.setValue(1);
-  };
-  const panResponder1 = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderMove: (_, { dx }) => {
-        position1.setValue(dx);
-      },
-      onPanResponderGrant: () => onPressIn1.start(),
-      onPanResponderRelease: (_, { dx }) => {
-        if (dx < -100) {
-          goLeft1.start(useCoin);
-        } else if (dx > 100) {
-          goRight1.start(useCoin);
-        } else {
-          Animated.parallel([onPressOut1, goCenter1]).start();
-        }
-      },
-    })
-  ).current;
-  const scale2 = useRef(new Animated.Value(1)).current;
-  const position2 = useRef(new Animated.Value(0)).current;
-  const onPressOut2 = Animated.spring(scale2, {
-    toValue: 1,
-    useNativeDriver: true,
-  });
-  const onPressIn2 = Animated.spring(scale2, {
-    toValue: 0.95,
-    useNativeDriver: true,
-  });
-  const goCenter2 = Animated.spring(position2, {
-    toValue: 0,
-    useNativeDriver: true,
-  });
-  const goLeft2 = Animated.spring(position2, {
-    toValue: -500,
-    tension: 5,
-    useNativeDriver: true,
-    restDisplacementThreshold: 200,
-    restSpeedThreshold: 200,
-  });
-  const goRight2 = Animated.spring(position2, {
-    toValue: 500,
-    tension: 5,
-    useNativeDriver: true,
-    restDisplacementThreshold: 200,
-    restSpeedThreshold: 200,
-  });
-  const panResponder2 = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderMove: (_, { dx }) => {
-        position2.setValue(dx);
-      },
-      onPanResponderGrant: () => onPressIn2.start(),
-      onPanResponderRelease: (_, { dx }) => {
-        if (dx < -100) {
-          goLeft2.start(useCoin);
-        } else if (dx > 100) {
-          goRight2.start(useCoin);
-        } else {
-          Animated.parallel([onPressOut2, goCenter2]).start();
-        }
-      },
-    })
-  ).current;
-
+  useEffect(() => {
+    setHintIndex(() =>
+      Array.from({ length: tempHintInitialList[stage].length }, (v, i) => i)
+    );
+  }, [stage]);
   useEffect(() => {
     //load();
     getCoinData();
+    getRecordData();
   }, []);
+  const trueSoundPlay = async () => {
+    console.log('Loading Sound');
+    const { sound } = await Audio.Sound.createAsync(
+      require('../assets/Audio/true.wav')
+    );
+    setTrueSound(sound);
+
+    console.log('Playing Sound');
+    await sound.playAsync();
+  };
+  const wrongSoundPlay = async () => {
+    console.log('Loading Sound');
+    const { sound } = await Audio.Sound.createAsync(
+      require('../assets/Audio/wrong.wav')
+    );
+    setWrongSound(sound);
+
+    console.log('Playing Sound');
+    await sound.playAsync();
+  };
+
+  const clickSoundPlay = async () => {
+    console.log('Loading Sound');
+    const { sound } = await Audio.Sound.createAsync(
+      require('../assets/Audio/hintClick.mp3')
+    );
+    setClickSound(sound);
+
+    console.log('Playing Sound');
+    await sound.playAsync();
+  };
+
   const load = async () => {
     await setTestDeviceIDAsync('EMULATOR');
   };
   const storeCoinData = async () => {
     //console.info(coinData.current);
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(coinData.current));
+      await AsyncStorage.setItem(
+        STORAGE_KEY_COIN,
+        JSON.stringify(coinData.current)
+      );
     } catch (e) {
       alert(e);
     }
   };
   const getCoinData = async () => {
     try {
-      const value = await AsyncStorage.getItem(STORAGE_KEY);
+      const value = await AsyncStorage.getItem(STORAGE_KEY_COIN);
       //console.info(value);
       if (value == null) {
         setCoin(0);
@@ -180,17 +132,65 @@ const Quiz = ({ route }) => {
       alert(e);
     }
   };
+  const storeRecordData = async () => {
+    record[stage] = true;
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY_RECORD, JSON.stringify(record));
+    } catch (e) {
+      alert(e);
+    }
+  };
+
+  const getRecordData = async () => {
+    try {
+      const value = await AsyncStorage.getItem(STORAGE_KEY_RECORD);
+      if (value == null) {
+        return;
+      } else {
+        setRecord(JSON.parse(value));
+      }
+    } catch (e) {
+      alert(e);
+    }
+  };
+
   const checkAnswer = () => {
     myAnswer == problemList[stage].text
-      ? (setBlur(false), setModalVisible(true))
-      : (alert('오답'), setMyAnswer(''));
+      ? (trueSoundPlay(),
+        setBlur(false),
+        setModalVisible(true),
+        storeRecordData())
+      : (wrongSoundPlay(), setMyAnswer(''));
   };
+
   const nextStage = () => {
     setModalVisible(false);
     setMyAnswer('');
     setBlur(true);
+    setHintText('');
+    setHintLevel(false);
     setStage((prev) => prev + 1);
-    reCover();
+  };
+
+  const giveHint = () => {
+    if (hintLevel == false) {
+      setHintText(tempHintInitialList[stage]);
+      setHintLevel(true);
+    } else {
+      if (hintIndex.length != 0) {
+        const randIdx = Math.floor(Math.random() * hintIndex.length); //[0,1,2]에서 1뽑음   //1뽑음    //0뽑음
+        const selIdx = hintIndex[randIdx]; //1     //2    //0
+        let temp = Array.from(hintText);
+        temp[selIdx] = problemList[stage].text[selIdx]; //ㅅ라ㅁ     //ㅅ라면    //신라면
+        //console.info('hintInitialList', hintInitialList[0]);
+        hintIndex.splice(randIdx, 1); //[0,2]    //[0]    //[]
+        setHintText(temp);
+        console.info('randIdx', randIdx);
+        console.info('selIdx', selIdx);
+        console.info('hintIndex', hintIndex);
+        console.info('hintText', temp);
+      }
+    }
   };
   const onRewardPress = async () => {
     // await AdMobRewarded.setAdUnitID('ca-app-pub-3940256099942544/5224354917'); // Test ID, Replace with your-admob-unit-id
@@ -210,76 +210,83 @@ const Quiz = ({ route }) => {
       style={{ flex: 1 }}
       enabled={false}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <WindowContainer>
-          <QuizContainer>
-            <Image
-              style={{ height: '100%', width: '100%', resizeMode: 'cover' }}
-              source={problemList[stage].img}
-              blurRadius={blur == true ? 5 : 0}
-            />
-            <RewardAdsButton onPress={() => onRewardPress()}>
-              <Text>돈내놔</Text>
-            </RewardAdsButton>
-            <CoinView>
-              <Text>{coin}</Text>
-            </CoinView>
-          </QuizContainer>
-          <AnswerContainer>
-            <AnswerInput
-              placeholder="무슨 컵라면 일까요?"
-              onChangeText={(newText) => setMyAnswer(newText)}
-              value={myAnswer}
-              onSubmitEditing={() => checkAnswer()}
-            />
-          </AnswerContainer>
-          <HintsContainer>
-            <HintView>
-              <HintTextStyle>{hintList[stage].initial}</HintTextStyle>
-              <HintCover
-                {...panResponder1.panHandlers}
-                style={{
-                  transform: [{ scale: scale1 }, { translateX: position1 }],
+        <SafeAreaView style={{ flex: 1 }}>
+          <WindowContainer>
+            <StatusBar style="light" backgroundColor="black" />
+            <Header>
+              <StageView>
+                <Text>{stage + 1}탄</Text>
+              </StageView>
+              <CoinView>
+                <Text>{coin}</Text>
+              </CoinView>
+            </Header>
+            <QuizContainer>
+              <Image
+                style={{ height: '100%', width: '100%', resizeMode: 'contain' }}
+                source={problemList[stage].img}
+                blurRadius={blur == true ? 6 : 0}
+              />
+              <RewardAdsButton onPress={() => onRewardPress()}>
+                <Text>돈내놔</Text>
+              </RewardAdsButton>
+            </QuizContainer>
+            <AnswerContainer>
+              <AnswerInput
+                placeholder="무슨 컵라면 일까요?"
+                onChangeText={(newText) => setMyAnswer(newText)}
+                value={myAnswer}
+                onSubmitEditing={() => checkAnswer()}
+              />
+            </AnswerContainer>
+            <HintsContainer>
+              <HintView>
+                <HintText>{hintText}</HintText>
+              </HintView>
+              <HintBtn
+                onPress={() => {
+                  clickSoundPlay();
+                  if (hintIndex.length != 0) {
+                    if (coin != 0) {
+                      coinUse();
+                      giveHint();
+                    } else {
+                      console.info('돈없다!');
+                    }
+                  } else {
+                    console.info('힌트다줌!');
+                  }
                 }}>
-                <HintButton>
-                  <FontAwesome name="lock" size={35} color="black" />
-                </HintButton>
-                <HintTextStyle>초성힌트</HintTextStyle>
-              </HintCover>
-            </HintView>
-            <HintView>
-              <HintTextStyle>{hintList[stage].association}</HintTextStyle>
-              <HintCover
-                {...panResponder2.panHandlers}
-                style={{
-                  transform: [{ scale: scale2 }, { translateX: position2 }],
-                }}>
-                <HintButton>
-                  <FontAwesome name="lock" size={35} color="black" />
-                </HintButton>
-                <HintTextStyle>한글자힌트</HintTextStyle>
-              </HintCover>
-            </HintView>
-          </HintsContainer>
-          <AdsContainer>
-            <AdMobBanner
-              bannerSize="fullBanner"
-              adUnitID="ca-app-pub-3940256099942544/6300978111" // Test ID, Replace with your-admob-unit-id
-              servePersonalizedAds // true or false
-              onDidFailToReceiveAdWithError={this.bannerError}
-            />
-          </AdsContainer>
-        </WindowContainer>
+                <Text>힌트줘</Text>
+              </HintBtn>
+            </HintsContainer>
+            <AdsContainer>
+              <AdMobBanner
+                bannerSize="fullBanner"
+                adUnitID="ca-app-pub-3940256099942544/6300978111" // Test ID, Replace with your-admob-unit-id
+                servePersonalizedAds // true or false
+                onDidFailToReceiveAdWithError={this.bannerError}
+              />
+            </AdsContainer>
+          </WindowContainer>
+        </SafeAreaView>
       </TouchableWithoutFeedback>
-      <Modal isVisible={isModalVisible}>
+      <Modal isVisible={isModalVisible} backdropOpacity={0}>
         <SelectModal>
           <ModalText>정답입니다!</ModalText>
           <ModalBtnContainer>
-            <ModalBtn>
+            <ModalBtn
+              onPress={() => {
+                clickSoundPlay();
+                goBack();
+              }}>
               <ModalBtnText>첫화면</ModalBtnText>
             </ModalBtn>
-            <ModalBtn onPress={nextStage}>
-              <ModalBtnText>다음</ModalBtnText>
-            </ModalBtn>
+            {stage != 100 ? (
+              <ModalBtn onPress={nextStage}>
+                <ModalBtnText>다음</ModalBtnText>
+              </ModalBtn>
+            ) : null}
           </ModalBtnContainer>
         </SelectModal>
       </Modal>
@@ -291,10 +298,35 @@ export default Quiz;
 
 const WindowContainer = styled.View`
   flex:1;
-  background-color:blue;
+  background-color:white;
+`;
+const Header = styled.View`
+  flex:0.065;
+  background-color:green;
+  flex-direction:row;
+  align-items:center;
+  justify-content:center;
+`;
+const StageView = styled.View`
+  background-color:red;
+  border-radius:25px;
+  width:70px;
+  height:40px;
+  justify-content:center;
+  align-items:center;
+`;
+const CoinView = styled.View`
+  background-color:red;
+  border-radius:25px;
+  width:70px;
+  height:40px;
+  justify-content:center;
+  align-items:center;
+  position:absolute;
+  right:15px;
 `;
 const QuizContainer = styled.View`
-  flex:0.5;
+  flex:0.45;
   background-color:red;
 `;
 const AnswerContainer = styled.View`
@@ -311,36 +343,33 @@ const AnswerInput = styled.TextInput`
   font-size:18px
 `;
 const HintsContainer = styled.View`
-  flex:0.3;
+  flex:0.35;
   background-color:skyblue;
-  justify-content:center;
+  justifyContent: space-evenly;
+`;
+const HintView = styled.View`
+  flex:0.7;
+  background-color:white;
+  marginHorizontal:10px;
+  border-radius:15px;
   align-items:center;
+  justify-content:center;
+`;
+const HintText = styled.Text`
+  fontSize:25px;
+`;
+const HintBtn = styled.TouchableOpacity`
+  background-color:green;
+  width:80px;
+  height:50px;
+  border-radius:25px;
+  align-self:center;
+  align-items:center;
+  justify-content:center;
 `;
 const AdsContainer = styled.View`
   flex:0.1;
   background-color:black;
-`;
-const HintView = styled.View`
-  background-color:white;
-  border-radius:20px;
-  width: 250px;
-  height:80px;
-  marginVertical:10px;
-  justify-content:center;
-  align-items:center;
-`;
-const HintTextStyle = styled.Text`
-  fontSize: 30px;
-`;
-const HintButton = styled.View`
-  //background-color:blue;
-  border-radius:10px;
-  width:50px;
-  height:50px;
-  position:absolute;
-  left:0px;
-  justify-content:center;
-  align-items:center;
 `;
 const RewardAdsButton = styled.TouchableOpacity`
   background-color:pink;
@@ -358,6 +387,7 @@ const SelectModal = styled.View`
   width:300px;
   height:200px;
   alignSelf:center;
+  top:110px;
   align-items:center;
   justify-content:center;
   border-radius:25px;
@@ -380,24 +410,4 @@ const ModalBtn = styled.TouchableOpacity`
   marginHorizontal:15px;
   justify-content:center;
   align-items:center;
-`;
-const CoinView = styled.View`
-  background-color:red;
-  border-radius:25px;
-  width:70px;
-  height:40px;
-  position:absolute;
-  top:30px;
-  right:15px;
-  justify-content:center;
-  align-items:center;
-`;
-const HintCover = styled(Animated.createAnimatedComponent(View))`
-  background-color:purple;
-  border-radius:20px;
-  width: 250px;
-  height:80px;
-  justify-content:center;
-  align-items:center;
-  position:absolute;
 `;

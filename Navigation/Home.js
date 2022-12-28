@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Text, View, TouchableOpacity } from 'react-native';
 import styled from 'styled-components/native';
+import { StatusBar } from 'expo-status-bar';
 import {
   AdMobBanner,
   AdMobInterstitial,
@@ -8,15 +9,57 @@ import {
   AdMobRewarded,
   setTestDeviceIDAsync,
 } from 'expo-ads-admob';
-
+import { Audio } from 'expo-av';
 const Home = ({ navigation: { navigate } }) => {
+  const [bgmSound, setBgmSound] = useState();
+  const [clickSound, setClickSound] = useState();
+
+  const bgmSoundPlay = async () => {
+    console.log('Loading Sound');
+    const { sound } = await Audio.Sound.createAsync(
+      require('../assets/Audio/backgroundMusic.mp3')
+    );
+    sound.setIsLoopingAsync(true);
+    setBgmSound(sound);
+
+    console.log('Playing Sound');
+    await sound.playAsync();
+  };
+
+  const clickSoundPlay = async () => {
+    console.log('Loading Sound');
+    const { sound } = await Audio.Sound.createAsync(
+      require('../assets/Audio/click.mp3')
+    );
+    setClickSound(sound);
+
+    console.log('Playing Sound');
+    await sound.playAsync();
+  };
+  useEffect(() => {
+    return bgmSound
+      ? () => {
+          console.log('Unloading Sound');
+          bgmSound.unloadAsync();
+        }
+      : undefined;
+  }, [bgmSound]);
+
+  useEffect(() => {
+    bgmSoundPlay();
+  }, []);
   return (
     <WindowContainer>
+      <StatusBar style="light" backgroundColor="black" />
       <GameTitleContainer>
         <GameTitle>컵라면 퀴즈</GameTitle>
       </GameTitleContainer>
       <GameBtnContainer>
-        <GameBtn onPress={() => navigate('StageSelect')}>
+        <GameBtn
+          onPress={() => {
+            clickSoundPlay();
+            navigate('StageSelect');
+          }}>
           <GameBtnText>게임시작</GameBtnText>
         </GameBtn>
       </GameBtnContainer>
