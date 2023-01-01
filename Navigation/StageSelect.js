@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   Text,
   View,
@@ -7,6 +7,8 @@ import {
   Dimensions,
   SafeAreaView,
   Image,
+  Animated,
+  Pressable,
 } from 'react-native';
 import styled from 'styled-components/native';
 import problemList from '../assets/problemList';
@@ -15,11 +17,18 @@ import { StatusBar } from 'expo-status-bar';
 const STORAGE_KEY_RECORD = '@my_record';
 const WindowWidth = Dimensions.get('window').width;
 import { Audio } from 'expo-av';
+import { useFonts } from 'expo-font';
 const StageSelect = ({ navigation: { navigate, addListener } }) => {
+  const [fontsLoaded] = useFonts({
+    appFont: require('../assets/font1.ttf'),
+  });
   const [record, setRecord] = useState(
     Array.from({ length: problemList.length }, () => false)
   );
   const [clickSound, setClickSound] = useState();
+  const scaleArr = useRef(
+    Array.from({ length: problemList.length }, (v, i) => new Animated.Value(1))
+  ).current;
 
   useEffect(() => {
     const goBackListener = addListener('focus', () => {
@@ -31,7 +40,7 @@ const StageSelect = ({ navigation: { navigate, addListener } }) => {
   const clickSoundPlay = async () => {
     console.log('Loading Sound');
     const { sound } = await Audio.Sound.createAsync(
-      require('../assets/Audio/click.mp3')
+      require('../assets/Audio/popClick.wav')
     );
     setClickSound(sound);
 
@@ -51,6 +60,7 @@ const StageSelect = ({ navigation: { navigate, addListener } }) => {
       alert(e);
     }
   };
+
   return (
     <WindowContainer>
       <StatusBar style="light" backgroundColor="black" />
@@ -58,67 +68,79 @@ const StageSelect = ({ navigation: { navigate, addListener } }) => {
         data={problemList}
         numColumns={3}
         keyExtractor={(item) => item.id + ''}
-        ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+        ItemSeparatorComponent={() => <View style={{ height: 15 }} />}
         columnWrapperStyle={{
           justifyContent: 'space-around',
         }}
-        renderItem={({ item, index }) => (
-          <StageView
-            onPress={() => {
-              clickSoundPlay();
-              navigate('Quiz', { stageIndex: index });
-            }}>
-            {record[index] == false ? (
-              <Image
-                style={{
-                  height: '100%',
-                  width: '100%',
-                  resizeMode: 'contain',
-                }}
-                source={require('../assets/cupIilust.jpg')}
-              />
-            ) : (
-              <Image
-                style={{
-                  height: '100%',
-                  width: '100%',
-                  resizeMode: 'contain',
-                }}
-                source={item.img}
-              />
-            )}
+        renderItem={({ item, index }) => {
+          return (
+            <StageView
+              android_disableSound={true}
+              onPressIn={() => {
+                scaleArr[index].setValue(0.9);
+                clickSoundPlay();
+              }}
+              onPress={() => {
+                navigate('Quiz', { stageIndex: index });
+              }}
+              onPressOut={() => {
+                scaleArr[index].setValue(1);
+              }}
+              style={{
+                transform: [{ scale: scaleArr[index] }],
+              }}>
+              {record[index] == false ? (
+                <Image
+                  style={{
+                    height: '100%',
+                    width: '100%',
+                    borderRadius: 10,
+                    resizeMode: 'contain',
+                  }}
+                  source={require('../assets/cupIilust.jpg')}
+                />
+              ) : (
+                <Image
+                  style={{
+                    height: '100%',
+                    width: '100%',
+                    borderRadius: 10,
+                    resizeMode: 'contain',
+                  }}
+                  source={item.img}
+                />
+              )}
 
-            <IndexText>{index + 1}</IndexText>
-          </StageView>
-        )}
+              <IndexText>{index + 1}</IndexText>
+            </StageView>
+          );
+        }}
       />
     </WindowContainer>
   );
 };
-// <Image
-//                 style={{ height: '100%', width: '100%', resizeMode: 'contain' }}
-//                 source={item.img}
-//               />
 export default StageSelect;
 
 const WindowContainer = styled.View`
   flex:1;
-  background-color:blue;
-  paddingTop:30px;
+  background-color:slateblue;
+  paddingTop:40px;
   paddingHorizontal:15px;
 `;
 
-const StageView = styled.TouchableOpacity`
+const StageView = styled(Animated.createAnimatedComponent(Pressable))`
   width:${WindowWidth / 4};
   height:${WindowWidth / 4};
-  background-color:red;
-  border-radius:20px;
 `;
 
 const IndexText = styled.Text`
   font-size:15px;
-  background-color:white;
+  background-color:black;
   alignSelf:flex-start
-  border-radius:5px;
+  paddingHorizontal:3px;
+  paddingTop:2px;
   position:absolute;
+  fontFamily:appFont;
+  color:white;
+  borderTopLeftRadius:10px;
 `;
