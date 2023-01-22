@@ -1,19 +1,37 @@
 import React, { useEffect, useState, useRef } from "react";
-import { Animated, Pressable, StyleSheet, Image } from "react-native";
+import {
+  Animated,
+  Pressable,
+  StyleSheet,
+  Image,
+  Dimensions,
+} from "react-native";
 import styled from "styled-components/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { StatusBar } from "expo-status-bar";
 import { Audio } from "expo-av";
 import { Shadow } from "react-native-shadow-2";
-import { AdMobBanner } from "expo-ads-admob";
 import { Octicons } from "@expo/vector-icons";
+import {
+  BannerAd,
+  BannerAdSize,
+  TestIds,
+} from "react-native-google-mobile-ads";
+const WindowWidth = Dimensions.get("window").width;
+const WindowHeight = Dimensions.get("window").height;
+const STORAGE_KEY_BANNER = "@my_banner";
+const bannerAdUnitId = __DEV__
+  ? TestIds.BANNER
+  : "ca-app-pub-8647279125417942/6622534546";
 
-const Home = ({ navigation: { navigate } }) => {
+const Home = ({ navigation: { navigate, addListener } }) => {
   const [bgmSound, setBgmSound] = useState();
   const [clickSound, setClickSound] = useState();
   const [cupOpen, setCupOpen] = useState(false);
   const [mute, setMute] = useState(false);
   const scaleStartBtn = useRef(new Animated.Value(1)).current;
   const scaleMuteBtn = useRef(new Animated.Value(1)).current;
+  const [bannerShow, setBannerShow] = useState(true);
   const bgmSoundPlay = async (mute) => {
     console.log("Loading Sound");
     const { sound } = await Audio.Sound.createAsync(
@@ -38,6 +56,18 @@ const Home = ({ navigation: { navigate } }) => {
     await sound.playAsync();
   };
 
+  const getBannerData = async () => {
+    try {
+      const value = await AsyncStorage.getItem(STORAGE_KEY_BANNER);
+      if (value == null) {
+        setBannerShow(true);
+      } else {
+        setBannerShow(false);
+      }
+    } catch (e) {
+      alert(e);
+    }
+  };
   useEffect(() => {
     return bgmSound
       ? () => {
@@ -58,6 +88,14 @@ const Home = ({ navigation: { navigate } }) => {
   useEffect(() => {
     bgmSoundPlay(true);
   }, []);
+
+  useEffect(() => {
+    const goBackListener = addListener("focus", () => {
+      getBannerData();
+      return goBackListener;
+    });
+  }, []);
+
   return (
     <WindowContainer>
       <StatusBar style="light" backgroundColor="black" />
@@ -74,14 +112,26 @@ const Home = ({ navigation: { navigate } }) => {
           {mute
             ? () => {
                 scaleMuteBtn.setValue(0.8);
-                return <Octicons name="mute" size={50} color="black" />;
+                return (
+                  <Octicons
+                    name="mute"
+                    size={WindowWidth / 8.2285}
+                    color="black"
+                  />
+                );
               }
             : () => {
                 scaleMuteBtn.setValue(1);
-                return <Octicons name="unmute" size={50} color="black" />;
+                return (
+                  <Octicons
+                    name="unmute"
+                    size={WindowWidth / 8.2285}
+                    color="black"
+                  />
+                );
               }}
         </SoundBtn>
-        <GameTitle>{"컵라면 101"}</GameTitle>
+        <GameTitle>{"컵라면 초성퀴즈"}</GameTitle>
       </GameTitleContainer>
       <IllustContainer>
         {cupOpen == false ? (
@@ -91,7 +141,7 @@ const Home = ({ navigation: { navigate } }) => {
               width: "100%",
               resizeMode: "contain",
               alignSelf: "center",
-              left: 25,
+              left: WindowWidth / 16.4571,
             }}
             source={require("../assets/cupClose.png")}
           />
@@ -102,7 +152,7 @@ const Home = ({ navigation: { navigate } }) => {
               width: "100%",
               resizeMode: "contain",
               alignSelf: "center",
-              left: 25,
+              left: WindowWidth / 16.4571,
             }}
             source={require("../assets/cupOpen.png")}
           />
@@ -139,11 +189,15 @@ const Home = ({ navigation: { navigate } }) => {
         </PressView>
       </GameBtnContainer>
       <AdsContainer>
-        <AdMobBanner
-          bannerSize="banner"
-          adUnitID="ca-app-pub-8647279125417942/6622534546" // Test ID, Replace with your-admob-unit-id
-          servePersonalizedAds={true}
-        />
+        {bannerShow ? (
+          <BannerAd
+            unitId={bannerAdUnitId}
+            size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
+            requestOptions={{
+              requestNonPersonalizedAdsOnly: true,
+            }}
+          />
+        ) : null}
       </AdsContainer>
     </WindowContainer>
   );
@@ -161,31 +215,31 @@ const GameTitleContainer = styled.View`
 `;
 const GameTitle = styled.Text`
   font-family: insungitCutelivelyjisu;
-  font-size: 70px;
-  padding-top: 200px;
+  font-size: ${WindowWidth / 8}px;
+  padding-top: ${WindowHeight / 4.082}px;
 `;
 const IllustContainer = styled.View`
   flex: 0.2;
   background-color: slateblue;
   align-items: center;
   justify-content: center;
-  padding-bottom: 20px;
+  padding-bottom: ${WindowHeight / 40.828}px;
 `;
 const GameBtnContainer = styled.View`
   flex: 0.3;
   background-color: slateblue;
   align-items: center;
-  paddingtop: 50px;
+  paddingtop: ${WindowHeight / 16.341}px;
 `;
 const PressView = styled(Animated.createAnimatedComponent(Pressable))``;
 const GameBtnText = styled.Text`
   font-family: insungitCutelivelyjisu;
-  font-size: 25px;
+  font-size: ${WindowWidth / 16.457}px;
 `;
 const SoundBtn = styled(Animated.createAnimatedComponent(Pressable))`
   position: absolute;
-  top: 35px;
-  right: 10px;
+  top: ${WindowHeight / 23.33}px;
+  right: ${WindowWidth / 41.142}px;
 `;
 const AdsContainer = styled.View`
   flex: 0.1;
@@ -196,10 +250,10 @@ const AdsContainer = styled.View`
 const styles = StyleSheet.create({
   boxShadow: {
     backgroundColor: "white",
-    width: 120,
-    height: 70,
-    borderRadius: 20,
-    borderWidth: 3,
+    width: WindowWidth / 3.428,
+    height: WindowHeight / 11.665,
+    borderRadius: WindowWidth / 20.571,
+    borderWidth: WindowWidth / 137.142,
     alignItems: "center",
     justifyContent: "center",
   },

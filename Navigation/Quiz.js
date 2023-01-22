@@ -11,46 +11,103 @@ import {
   Pressable,
   Image,
   StyleSheet,
+  Alert,
+  TouchableOpacity,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Shadow } from "react-native-shadow-2";
 import styled from "styled-components/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-const WindowHeight = Dimensions.get("window").height;
 const WindowWidth = Dimensions.get("window").width;
+const WindowHeight = Dimensions.get("window").height;
 const STORAGE_KEY_COIN = "@my_coins";
 const STORAGE_KEY_RECORD = "@my_record";
+const STORAGE_KEY_BANNER = "@my_banner";
 import problemList from "../assets/problemList";
 import hintInitialList from "../assets/hintInitialList";
 import { Octicons } from "@expo/vector-icons";
+import { FontAwesome } from "@expo/vector-icons";
 import { Audio } from "expo-av";
 import Modal from "react-native-modal";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { AdMobBanner, AdMobRewarded } from "expo-ads-admob";
+import Share from "react-native-share";
+import ViewShot from "react-native-view-shot";
+import { requestPurchase, useIAP, withIAPContext } from "react-native-iap";
+import {
+  BannerAd,
+  BannerAdSize,
+  TestIds,
+  useRewardedAd,
+  useInterstitialAd,
+} from "react-native-google-mobile-ads";
+const bannerAdUnitId = __DEV__
+  ? TestIds.BANNER
+  : "ca-app-pub-8647279125417942/6622534546";
+const rewardeAdUnitId = __DEV__
+  ? TestIds.REWARDED
+  : "ca-app-pub-8647279125417942/5888900748";
+const interAdUnitId = __DEV__
+  ? TestIds.INTERSTITIAL
+  : "ca-app-pub-8647279125417942/3747225625";
 
+const itemSkus = ["1000_coin", "2000_coin", "banner_remove"];
+const shopText = {
+  "1000_coin": { name: "1000코인 충전", cost: "₩1,000" },
+  "2000_coin": { name: "2000코인 충전", cost: "₩2,000" },
+  banner_remove: { name: "배너광고 제거", cost: "₩1,000" },
+};
 const tempHintInitialList = Array.from(hintInitialList);
+
 const Quiz = ({ route, navigation: { goBack } }) => {
+  const {
+    products,
+    currentPurchase,
+    currentPurchaseError,
+    finishTransaction,
+    getProducts,
+  } = useIAP();
+  const {
+    isLoaded: rewardIsLoaded,
+    isClosed: rewardIsClosed,
+    load: rewardLoad,
+    show: rewardShow,
+  } = useRewardedAd(rewardeAdUnitId, {
+    requestNonPersonalizedAdsOnly: true,
+  });
+  const {
+    isLoaded: interIsLoaded,
+    isClosed: interIsClosed,
+    load: interLoad,
+    show: interShow,
+  } = useInterstitialAd(interAdUnitId, {
+    requestNonPersonalizedAdsOnly: true,
+  });
   const [trueSound, setTrueSound] = useState();
   const [wrongSound, setWrongSound] = useState();
   const [clickSound, setClickSound] = useState();
-  const bannerRef = useRef(null);
   const [stage, setStage] = useState(route.params.stageIndex);
   const [hintLevel, setHintLevel] = useState(false);
   const [hintText, setHintText] = useState("");
   const [hintIndex, setHintIndex] = useState(
     Array.from({ length: tempHintInitialList[stage].length }, (v, i) => i)
   );
+  const [isShopModalVisible, setShopModalVisible] = useState(false);
   const [isSelectModalVisible, setSelectModalVisible] = useState(false);
   const [isFalseModalVisible, setFalseModalVisible] = useState(false);
+  const [isShareModalVisible, setShareModalVisible] = useState(false);
   const [myAnswer, setMyAnswer] = useState("");
   const [coin, setCoin] = useState(0);
   const [blur, setBlur] = useState(true);
+  const [hideShareBtn, setHideShareBtn] = useState(false);
+  const [bannerShow, setBannerShow] = useState(true);
   const [hintCost, setHintCost] = useState(10);
   const [hintName, setHintName] = useState("초성힌트");
   const scaleHintBtn = useRef(new Animated.Value(1)).current;
   const scaleNextBtn = useRef(new Animated.Value(1)).current;
   const scaleHomeBtn = useRef(new Animated.Value(1)).current;
   const scaleAdsBtn = useRef(new Animated.Value(1)).current;
+  const scaleFriendBtn = useRef(new Animated.Value(1)).current;
+  const scaleShareBtn = useRef(new Animated.Value(1)).current;
   const [record, setRecord] = useState(
     Array.from({ length: problemList.length }, () => false)
   );
@@ -68,7 +125,119 @@ const Quiz = ({ route, navigation: { goBack } }) => {
   useEffect(() => {
     getCoinData();
     getRecordData();
+    getBannerData();
+    // rewardLoad();
+    // interLoad();
   }, []);
+  const ref = useRef();
+
+  const onShot = () => {
+    ref.current.capture().then((uri) => {
+      onShare(uri);
+    });
+  };
+  const onShare = async (uri) => {
+    console.log("uri", uri);
+    const shareResponse = await Share.open({ url: uri })
+      .then((res) => {
+        console.log(res);
+      })
+      .catch((err) => {
+        err && console.log(err);
+      });
+
+    setHideShareBtn(false);
+  };
+
+  console.log("rewardLoad!!", rewardIsLoaded);
+  console.log("interLoad!!", interIsLoaded);
+  useEffect(() => {
+    // console.log("rewardLoad!!", rewardIsLoaded);
+    rewardLoad();
+  }, [rewardLoad]);
+  useEffect(() => {
+    // console.log("interLoad!!", interIsLoaded);
+    interLoad();
+  }, [interLoad]);
+  useEffect(() => {
+    if (rewardIsClosed) {
+      console.log("RewardClose!!");
+      setCoin((prev) => prev + 100);
+      coinData.current += 100;
+      storeCoinData();
+      rewardLoad();
+    }
+  }, [rewardIsClosed]);
+
+  useEffect(() => {
+    if (interIsClosed) {
+      console.log("InterClose!!");
+
+      goBack();
+    }
+  }, [interIsClosed]);
+  const handlePurchase = async (sku) => {
+    console.log("sku", sku);
+
+    try {
+      await requestPurchase({ skus: [sku] });
+    } catch (error) {
+      console.log("request purchase error: ", error);
+    }
+  };
+
+  useEffect(() => {
+    // ... listen to currentPurchaseError, to check if any error happened
+    const USER_CANCEL = "E_USER_CANCELLED";
+    if (currentPurchaseError != undefined) {
+      if (currentPurchaseError.code === USER_CANCEL) {
+        Alert.alert("구매 취소", "구매를 취소하셨습니다.");
+      } else {
+        Alert.alert("구매 실패", "구매 중 오류가 발생하였습니다.");
+      }
+    }
+  }, [currentPurchaseError]);
+  useEffect(() => {
+    const checkCurrentPurchase = async (purchase) => {
+      if (purchase) {
+        const receipt = purchase.transactionReceipt;
+        console.log("영수증", receipt);
+        if (receipt)
+          try {
+            const ackResult = await finishTransaction({
+              purchase,
+              isConsumable: true,
+            });
+            console.log("ackResult", ackResult);
+            givePurchase(purchase.productId);
+          } catch (ackErr) {
+            console.warn("ackErrQuiz", ackErr);
+          }
+      }
+    };
+    checkCurrentPurchase(currentPurchase);
+  }, [currentPurchase, finishTransaction]);
+
+  const givePurchase = (itemId) => {
+    if (itemId == itemSkus[0]) {
+      //1000_coin
+      setCoin((prev) => prev + 1000);
+      coinData.current += 1000;
+      storeCoinData();
+    } else if (itemId == itemSkus[1]) {
+      //2000_coin
+      //Math.floor(Math.random() * (max - min + 1)) + min
+      const randValue = Math.floor(Math.random() * (50 - 10 + 1)) + 10; //10~50
+      // console.log("2000코인구매", 2000 + randValue * 10);
+      setCoin((prev) => prev + 2000 + randValue * 10);
+      coinData.current += 2000 + randValue * 10;
+      storeCoinData();
+    } else if (itemId == itemSkus[2]) {
+      storeBannerData();
+      setBannerShow(false);
+    }
+  };
+
   const trueSoundPlay = async () => {
     console.log("Loading Sound");
     const { sound } = await Audio.Sound.createAsync(
@@ -96,6 +265,7 @@ const Quiz = ({ route, navigation: { goBack } }) => {
       require("../assets/Audio/hintClick.mp3")
     );
     setClickSound(sound);
+    sound.setVolumeAsync(0.3);
 
     console.log("Playing Sound");
     await sound.playAsync();
@@ -114,10 +284,9 @@ const Quiz = ({ route, navigation: { goBack } }) => {
   const getCoinData = async () => {
     try {
       const value = await AsyncStorage.getItem(STORAGE_KEY_COIN);
-
       if (value == null) {
-        setCoin(0);
-        coinData.current = 0;
+        setCoin(100);
+        coinData.current = 100;
       } else {
         setCoin(JSON.parse(value));
         coinData.current = JSON.parse(value);
@@ -148,6 +317,25 @@ const Quiz = ({ route, navigation: { goBack } }) => {
     }
   };
 
+  const storeBannerData = async () => {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY_BANNER, JSON.stringify(false));
+    } catch (e) {
+      alert(e);
+    }
+  };
+  const getBannerData = async () => {
+    try {
+      const value = await AsyncStorage.getItem(STORAGE_KEY_BANNER);
+      if (value == null) {
+        setBannerShow(true);
+      } else {
+        setBannerShow(false);
+      }
+    } catch (e) {
+      alert(e);
+    }
+  };
   const checkAnswer = () => {
     myAnswer == problemList[stage].text
       ? (trueSoundPlay(),
@@ -193,18 +381,6 @@ const Quiz = ({ route, navigation: { goBack } }) => {
       }
     }
   };
-  const onRewardPress = async () => {
-    await AdMobRewarded.setAdUnitID("ca-app-pub-8647279125417942/5888900748"); // Test ID, Replace with your-admob-unit-id
-    await AdMobRewarded.requestAdAsync({ servePersonalizedAds: true });
-    await AdMobRewarded.showAdAsync();
-    AdMobRewarded.removeAllListeners();
-    AdMobRewarded.addEventListener("rewardedVideoUserDidEarnReward", () => {
-      setCoin((prev) => prev + 100);
-      coinData.current += 100;
-      storeCoinData();
-    });
-  };
-  console.log(coin);
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -216,9 +392,38 @@ const Quiz = ({ route, navigation: { goBack } }) => {
           <WindowContainer>
             <StatusBar style="light" backgroundColor="black" />
             <Header>
+              <ShopView>
+                <ShopTextView>
+                  <Text
+                    style={{
+                      fontFamily: "insungitCutelivelyjisu",
+                      fontSize: WindowWidth / 27.4285,
+                    }}
+                  >
+                    {"코인충전"}
+                  </Text>
+                </ShopTextView>
+                <ShopBtn
+                  onPress={() => {
+                    getProducts({
+                      skus: itemSkus,
+                    });
+                    setShopModalVisible(true);
+                  }}
+                >
+                  <FontAwesome
+                    name="plus-circle"
+                    size={WindowWidth / 17.1428}
+                    color="#FDB60C"
+                  />
+                </ShopBtn>
+              </ShopView>
               <StageView>
                 <Text
-                  style={{ fontFamily: "insungitCutelivelyjisu", fontSize: 17 }}
+                  style={{
+                    fontFamily: "insungitCutelivelyjisu",
+                    fontSize: WindowWidth / 24.2016,
+                  }}
                 >
                   {stage + 1}탄
                 </Text>
@@ -230,9 +435,9 @@ const Quiz = ({ route, navigation: { goBack } }) => {
                     width: "100%",
                     resizeMode: "contain",
                     position: "absolute",
-                    right: 35,
+                    right: WindowWidth / 11.7551,
                     zIndex: 1,
-                    top: 2,
+                    top: WindowHeight / 408.2857,
                   }}
                   source={require("../assets/Coin.png")}
                 />
@@ -240,7 +445,7 @@ const Quiz = ({ route, navigation: { goBack } }) => {
                   <Text
                     style={{
                       fontFamily: "insungitCutelivelyjisu",
-                      fontSize: 15,
+                      fontSize: WindowWidth / 27.4285,
                     }}
                   >
                     {coin}
@@ -248,9 +453,10 @@ const Quiz = ({ route, navigation: { goBack } }) => {
                 </CoinTextView>
               </CoinView>
             </Header>
+
             <QuizContainer>
               <Image
-                style={{ height: "95%", width: "95%", resizeMode: "contain" }}
+                style={{ height: "95%", width: "90%", resizeMode: "contain" }}
                 source={
                   blur == true
                     ? problemList[stage].imgBlur
@@ -258,49 +464,62 @@ const Quiz = ({ route, navigation: { goBack } }) => {
                 }
                 borderRadius={10}
               />
-              <RewardAdsButton
-                style={{
-                  transform: [{ scale: scaleAdsBtn }],
-                }}
-                onPressIn={() => {
-                  scaleAdsBtn.setValue(0.9);
-                  clickSoundPlay();
-                }}
-                onPressOut={() => {
-                  scaleAdsBtn.setValue(1);
-                  onRewardPress();
-                }}
-              >
-                <View
+
+              {rewardIsLoaded ? (
+                <RewardAdsButton
                   style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "center",
+                    transform: [{ scale: scaleAdsBtn }],
+                  }}
+                  onPressIn={() => {
+                    scaleAdsBtn.setValue(0.9);
+                    clickSoundPlay();
+                  }}
+                  onPressOut={() => {
+                    scaleAdsBtn.setValue(1);
+                    rewardShow();
                   }}
                 >
-                  <Octicons name="video" size={27} color="red" />
-                </View>
-                <View style={{ flexDirection: "row" }}>
-                  <View style={{ width: 23, height: 23, top: 4 }}>
-                    <Image
-                      style={{
-                        height: "100%",
-                        width: "100%",
-                        resizeMode: "contain",
-                      }}
-                      source={require("../assets/Coin.png")}
-                    />
-                  </View>
-                  <Text
+                  <View
                     style={{
-                      fontFamily: "insungitCutelivelyjisu",
-                      fontSize: 17,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "center",
                     }}
                   >
-                    {"x100"}
-                  </Text>
-                </View>
-              </RewardAdsButton>
+                    <Octicons
+                      name="video"
+                      size={WindowWidth / 15.238}
+                      color="red"
+                    />
+                  </View>
+                  <View style={{ flexDirection: "row" }}>
+                    <View
+                      style={{
+                        width: WindowWidth / 17.8881,
+                        height: WindowHeight / 35.5031,
+                        top: WindowHeight / 204.1428,
+                      }}
+                    >
+                      <Image
+                        style={{
+                          height: "100%",
+                          width: "100%",
+                          resizeMode: "contain",
+                        }}
+                        source={require("../assets/Coin.png")}
+                      />
+                    </View>
+                    <Text
+                      style={{
+                        fontFamily: "insungitCutelivelyjisu",
+                        fontSize: WindowWidth / 24.2016,
+                      }}
+                    >
+                      {"x100"}
+                    </Text>
+                  </View>
+                </RewardAdsButton>
+              ) : null}
             </QuizContainer>
             <AnswerContainer>
               <AnswerInput
@@ -316,7 +535,7 @@ const Quiz = ({ route, navigation: { goBack } }) => {
               <HintView
                 style={
                   hintText.length > 6
-                    ? { flexWrap: "wrap", paddingTop: 20 }
+                    ? { flexWrap: "wrap", paddingTop: WindowHeight / 40.8285 }
                     : null
                 }
               >
@@ -347,8 +566,9 @@ const Quiz = ({ route, navigation: { goBack } }) => {
                 }}
                 onPressOut={() => {
                   scaleHintBtn.setValue(1);
+
                   if (hintIndex.length != 0) {
-                    if (coin - hintCost > 0) {
+                    if (coin - hintCost >= 0) {
                       coinUse();
                       giveHint();
                     } else {
@@ -360,12 +580,21 @@ const Quiz = ({ route, navigation: { goBack } }) => {
                 }}
               >
                 <Text
-                  style={{ fontFamily: "insungitCutelivelyjisu", fontSize: 17 }}
+                  style={{
+                    fontFamily: "insungitCutelivelyjisu",
+                    fontSize: WindowWidth / 24.2016,
+                  }}
                 >
                   {hintName}
                 </Text>
                 <View style={{ flexDirection: "row" }}>
-                  <View style={{ width: 23, height: 23, top: 4 }}>
+                  <View
+                    style={{
+                      width: WindowWidth / 17.8881,
+                      height: WindowHeight / 35.5031,
+                      top: WindowHeight / 204.1428,
+                    }}
+                  >
                     <Image
                       style={{
                         height: "100%",
@@ -378,7 +607,7 @@ const Quiz = ({ route, navigation: { goBack } }) => {
                   <Text
                     style={{
                       fontFamily: "insungitCutelivelyjisu",
-                      fontSize: 17,
+                      fontSize: WindowWidth / 24.2016,
                     }}
                   >
                     {"x"}
@@ -386,26 +615,103 @@ const Quiz = ({ route, navigation: { goBack } }) => {
                   </Text>
                 </View>
               </HintBtn>
+              <FriendBtn
+                style={{
+                  transform: [{ scale: scaleFriendBtn }],
+                }}
+                onPressIn={() => {
+                  scaleFriendBtn.setValue(0.9);
+                  clickSoundPlay();
+                }}
+                onPressOut={() => {
+                  scaleFriendBtn.setValue(1);
+                  setShareModalVisible(true);
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: "insungitCutelivelyjisu",
+                    fontSize: WindowWidth / 27.4285,
+                  }}
+                >
+                  {"친구 찬스"}
+                </Text>
+              </FriendBtn>
             </HintsContainer>
             <AdsContainer>
-              <AdMobBanner
-                bannerSize="banner"
-                adUnitID="ca-app-pub-8647279125417942/6622534546" // Test ID, Replace with your-admob-unit-id
-                servePersonalizedAds // true or false
-              />
+              {bannerShow ? (
+                <BannerAd
+                  unitId={bannerAdUnitId}
+                  size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
+                  requestOptions={{
+                    requestNonPersonalizedAdsOnly: true,
+                  }}
+                />
+              ) : null}
             </AdsContainer>
           </WindowContainer>
         </SafeAreaView>
       </TouchableWithoutFeedback>
       <Modal
-        isVisible={isSelectModalVisible}
-        backdropOpacity={0}
+        isVisible={isShopModalVisible}
+        backdropOpacity={0.4}
         useNativeDriver={true}
         animationIn={"pulse"}
-        onBackButtonPress={goBack}
+        animationOut={"zoomOut"}
+        onBackdropPress={() => {
+          setShopModalVisible(false);
+        }}
+        onBackButtonPress={() => {
+          setShopModalVisible(false);
+        }}
+      >
+        <ShopModal>
+          <ShopModalHeader>
+            <Text
+              style={{
+                fontFamily: "insungitCutelivelyjisu",
+                fontSize: WindowWidth / 18.7012,
+              }}
+            >
+              {"현재 보유코인 :  " + coin + " 개"}
+            </Text>
+          </ShopModalHeader>
+          <ShopModalContentsContainer>
+            {products.map((product) => (
+              <ShopModalContents key={product.productId}>
+                <ShopModalContentsTextContainer>
+                  <ShopModalText>
+                    {shopText[product.productId].name}
+                  </ShopModalText>
+
+                  {product.productId == itemSkus[1] ? (
+                    <CostText>{"+랜덤추가지급:0~500"}</CostText>
+                  ) : null}
+                </ShopModalContentsTextContainer>
+
+                <ContentsPriceBtn
+                  onPress={() => handlePurchase(product.productId)}
+                >
+                  <CostText>{shopText[product.productId].cost}</CostText>
+                  <CostText>{"구입"}</CostText>
+                </ContentsPriceBtn>
+              </ShopModalContents>
+            ))}
+          </ShopModalContentsContainer>
+        </ShopModal>
+      </Modal>
+      <Modal
+        isVisible={isSelectModalVisible}
+        backdropOpacity={0.3}
+        useNativeDriver={true}
+        animationIn={"pulse"}
+        onBackButtonPress={() => {
+          interShow();
+          goBack();
+        }}
       >
         <SelectModal>
-          <ModalText>정답입니다!</ModalText>
+          <ModalText>{"정답입니다!"}</ModalText>
           <ModalBtnContainer>
             <PressView
               style={{
@@ -417,7 +723,7 @@ const Quiz = ({ route, navigation: { goBack } }) => {
               }}
               onPressOut={() => {
                 scaleHomeBtn.setValue(1);
-                goBack();
+                interShow();
               }}
             >
               <Shadow
@@ -427,7 +733,7 @@ const Quiz = ({ route, navigation: { goBack } }) => {
                 offset={[15, 3]}
                 style={styles.selectBoxShadow}
               >
-                <ModalBtnText>첫화면</ModalBtnText>
+                <ModalBtnText>{"첫화면"}</ModalBtnText>
               </Shadow>
             </PressView>
             {stage != 100 ? (
@@ -465,14 +771,111 @@ const Quiz = ({ route, navigation: { goBack } }) => {
         animationIn={"pulse"}
       >
         <FalseModal>
-          <ModalText>땡!</ModalText>
+          <ModalText>{"땡!"}</ModalText>
         </FalseModal>
+      </Modal>
+      <Modal
+        isVisible={isShareModalVisible}
+        backdropOpacity={0.3}
+        useNativeDriver={true}
+        animationIn={"pulse"}
+        onBackdropPress={() => {
+          setShareModalVisible(false);
+        }}
+        onBackButtonPress={() => {
+          setShareModalVisible(false);
+        }}
+      >
+        <ShareModal>
+          <ViewShot
+            style={{
+              width: WindowWidth / 1.21,
+              alignItems: "center",
+              backgroundColor: "lightcoral",
+            }}
+            ref={ref}
+            options={{
+              fileName: "Your-File-Name",
+              format: "png",
+              quality: 0.9,
+            }}
+          >
+            <View
+              style={{
+                backgroundColor: "blue",
+                width: WindowWidth / 1.5,
+                height: WindowWidth / 1.5,
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: WindowHeight / 80,
+                marginTop: WindowHeight / 80,
+              }}
+            >
+              <Image
+                style={{
+                  height: "100%",
+                  width: "100%",
+                  resizeMode: "contain",
+                }}
+                source={problemList[stage].imgBlur}
+                borderRadius={10}
+              />
+            </View>
+
+            <ShareHint
+              style={
+                hintText.length > 6
+                  ? { flexWrap: "wrap", paddingTop: WindowHeight / 40.8285 }
+                  : null
+              }
+            >
+              {hintText.length != 0
+                ? hintText.map((text, index) => {
+                    return (
+                      <Shadow
+                        distance={1}
+                        startColor={"#00000020"}
+                        finalColor={"#ffbcbcbc"}
+                        offset={[5, 8]}
+                        style={styles.wordBoxShadow}
+                        key={index}
+                      >
+                        <HintText>{text}</HintText>
+                      </Shadow>
+                    );
+                  })
+                : null}
+            </ShareHint>
+            {hideShareBtn ? null : (
+              <ShareBtn
+                style={{
+                  transform: [{ scale: scaleShareBtn }],
+                }}
+                onPressIn={() => {
+                  clickSoundPlay();
+                  scaleShareBtn.setValue(0.9);
+                }}
+                onPressOut={() => {
+                  setHideShareBtn(true);
+                  onShot();
+                  scaleShareBtn.setValue(1);
+                }}
+              >
+                <Text
+                  style={{ fontFamily: "insungitCutelivelyjisu", fontSize: 16 }}
+                >
+                  {"보내기"}
+                </Text>
+              </ShareBtn>
+            )}
+          </ViewShot>
+        </ShareModal>
       </Modal>
     </KeyboardAvoidingView>
   );
 };
 
-export default Quiz;
+export default withIAPContext(Quiz);
 
 const WindowContainer = styled.View`
   flex: 1;
@@ -485,33 +888,120 @@ const Header = styled.View`
   align-items: center;
   justify-content: center;
 `;
+const ShopView = styled.View`
+  background-color: white;
+  width: ${WindowWidth / 3.5776}px;
+  height: ${WindowHeight / 27.219}px;
+  border-radius: ${WindowWidth / 16.4571}px;
+  align-items: center;
+  position: absolute;
+  left: ${WindowWidth / 41.1428}px;
+  flex-direction: row;
+`;
+const ShopTextView = styled.View`
+  width: ${WindowWidth / 4.6753}px;
+  height: ${WindowHeight / 27.219}px;
+  justify-content: center;
+  align-items: center;
+`;
+const ShopBtn = styled.TouchableOpacity`
+  //background-color: red;
+  width: ${WindowWidth / 9.1428}px;
+  height: ${WindowHeight / 18.146}px;
+  justify-content: center;
+  align-items: center;
+  position: absolute;
+  right: 0px;
+`;
+const ShopModal = styled.View`
+  background-color: lightcoral;
+  width: ${WindowWidth / 1.371}px;
+  height: ${WindowHeight / 1.633}px;
+  align-self: center;
+  align-items: center;
+  border-radius: ${WindowWidth / 16.4571}px;
+`;
+const ShopModalHeader = styled.View`
+  margin-top: ${WindowHeight / 81.6571}px;
+  //background-color: red;
+  width: ${WindowWidth / 1.6457}px;
+  height: ${WindowHeight / 11.6653}px;
+  align-self: center;
+  justify-content: center;
+  align-items: center;
+  justify-content: center;
+`;
+const ShopModalContentsContainer = styled.View`
+  //margin-top: 10px;
+  //background-color: white;
+  width: ${WindowWidth / 1.645}px;
+  height: ${WindowHeight / 2.041}px;
+  align-self: center;
+  justify-content: space-evenly;
+  border-radius: ${WindowWidth / 16.4571}px;
+`;
+const ShopModalContents = styled.View`
+  background-color: #80f0f0;
+  width: ${WindowWidth / 1.645}250px;
+  height: ${WindowHeight / 8.165}px;
+  align-items: center;
+  justify-content: space-evenly;
+  border-radius: ${WindowWidth / 16.4571}px;
+  flex-direction: row;
+`;
+const ShopModalContentsTextContainer = styled.View`
+  // background-color: white;
+  width: ${WindowWidth / 2.7428}px;
+  height: ${WindowHeight / 8.165}px;
+  justify-content: center;
+  align-items: center;
+  border-radius: ${WindowWidth / 16.4571}px;
+`;
+const ShopModalText = styled.Text`
+  font-size: ${WindowWidth / 20.5714}px;
+  font-family: insungitCutelivelyjisu;
+`;
+const CostText = styled.Text`
+  font-size: ${WindowWidth / 27.4285}px;
+  font-family: insungitCutelivelyjisu;
+  padding-top: ${WindowHeight / 272.1904}px;
+`;
+const ContentsPriceBtn = styled.TouchableOpacity`
+  background-color: #f0b880;
+  width: ${WindowWidth / 5.8775}70px;
+  height: ${WindowHeight / 11.6653}70px;
+  border-radius: ${WindowWidth / 20.5714}20px;
+  justify-content: center;
+  align-items: center;
+`;
 const StageView = styled.View`
   background-color: lightseagreen;
-  border-radius: 25px;
-  width: 70px;
-  height: 40px;
+  border-radius: ${WindowWidth / 16.4571}px;
+  width: ${WindowWidth / 5.8775}px;
+  height: ${WindowHeight / 20.4142}px;
   justify-content: center;
   align-items: center;
 `;
 const CoinView = styled.View`
-  width: 70px;
-  height: 40px;
+  width: ${WindowWidth / 5.8775}px;
+  height: ${WindowHeight / 20.4142}px;
   align-items: center;
   position: absolute;
-  right: 15px;
+  right: ${WindowWidth / 27.4285}px;
   flex-direction: row;
 `;
 const CoinTextView = styled.View`
   background-color: white;
-  border-radius: 25px;
-  width: 70px;
-  height: 30px;
+  border-radius: ${WindowWidth / 16.4571}px;
+  width: ${WindowWidth / 5.8775}px;
+  height: ${WindowHeight / 27.219}px;
   justify-content: center;
   align-items: flex-end;
-  padding-right: 15px;
+  padding-right: ${WindowWidth / 60}px;
 `;
 const QuizContainer = styled.View`
   flex: 0.45;
+  padding-top: ${WindowHeight / 54.438}px;
   background-color: slateblue;
   align-items: center;
 `;
@@ -525,9 +1015,9 @@ const AnswerContainer = styled.View`
 `;
 const AnswerInput = styled.TextInput`
   background-color: white;
-  border-radius: 10px;
+  border-radius: ${WindowWidth / 41.1428}px;
   padding: 10px 20px;
-  font-size: 18px;
+  font-size: ${WindowWidth / 22.8571}px;
 `;
 const HintsContainer = styled.View`
   flex: 0.35;
@@ -536,26 +1026,36 @@ const HintsContainer = styled.View`
   align-items: center;
 `;
 
-const t = 300;
 const HintView = styled.View`
   flex: 0.7;
   background-color: white;
   width: ${WindowWidth * 0.9}px;
-  border-radius: 15px;
+  border-radius: ${WindowWidth / 27.4285}px;
   justify-content: center;
   flex-direction: row;
   align-items: center;
 `;
 const HintText = styled.Text`
-  font-size: 25px;
+  font-size: ${WindowWidth / 16.4571}px;
   font-family: insungitCutelivelyjisu;
 `;
 const HintBtn = styled(Animated.createAnimatedComponent(Pressable))`
   background-color: lightseagreen;
-  width: 90px;
-  height: 65px;
-  border-radius: 25px;
+  width: ${WindowWidth / 4.5714}90px;
+  height: ${WindowHeight / 12.5626}65px;
+  border-radius: ${WindowWidth / 16.4571}px;
   align-self: center;
+  align-items: center;
+  justify-content: center;
+`;
+const FriendBtn = styled(Animated.createAnimatedComponent(Pressable))`
+  background-color: orange;
+  position: absolute;
+  right: ${WindowWidth / 41.1428}px;
+  bottom: 0px;
+  width: ${WindowWidth / 5.8775}px;
+  height: ${WindowHeight / 16.3314}px;
+  border-radius: ${WindowWidth / 16.4571}px;
   align-items: center;
   justify-content: center;
 `;
@@ -567,68 +1067,93 @@ const AdsContainer = styled.View`
 `;
 const RewardAdsButton = styled(Animated.createAnimatedComponent(Pressable))`
   background-color: lightseagreen;
-  border-radius: 25px;
-  width: 80px;
-  height: 60px;
+  border-radius: ${WindowWidth / 16.4571}px;
+  width: ${WindowWidth / 5.1428}px;
+  height: ${WindowHeight / 13.6095}px;
   position: absolute;
-  bottom: 5px;
-  right: 5px;
+  bottom: ${WindowHeight / 163.3142}px;
+  right: ${WindowWidth / 82.2857}px;
   justify-content: center;
   align-items: center;
 `;
 const SelectModal = styled.View`
   background-color: lightcoral;
-  width: 300px;
-  height: 200px;
+  width: ${WindowWidth / 1.3714}px;
+  height: ${WindowHeight / 4.0828}px;
   align-self: center;
   align-items: center;
   justify-content: center;
-  border-radius: 25px;
+  border-radius: ${WindowWidth / 16.4571}px;
 `;
 const ModalBtnContainer = styled.View`
   flex-direction: row;
-  margin-top: 30px;
+  margin-top: ${WindowHeight / 27.219}30px;
 `;
 const FalseModal = styled.View`
   background-color: lightcoral;
-  width: 200px;
-  height: 150px;
+  width: ${WindowWidth / 2.0571}px;
+  height: ${WindowHeight / 5.4438}0px;
   align-self: center;
   align-items: center;
   justify-content: center;
-  border-radius: 25px;
+  border-radius: ${WindowWidth / 16.4571}px;
+`;
+const ShareModal = styled.View`
+  background-color: lightcoral;
+  width: ${WindowWidth / 1.1755}350px;
+  align-self: center;
+  align-items: center;
+  border-radius: ${WindowWidth / 16.4571}px;
+  padding-vertical: ${WindowHeight / 40.8285}20px;
+`;
+const ShareHint = styled.View`
+  //background-color: blue;
+  border-radius: ${WindowWidth / 20.5714}20px;
+  width: ${WindowWidth / 1.3714}px;
+  justify-content: center;
+  flex-direction: row;
+`;
+const ShareBtn = styled(Animated.createAnimatedComponent(Pressable))`
+  background-color: skyblue;
+  border-radius: ${WindowWidth / 16.4571}px;
+  width: ${WindowWidth / 5.8775}70px;
+  height: ${WindowHeight / 16.3314}px;
+  align-items: center;
+  justify-content: center;
+  margin-top: ${WindowHeight / 54.438}px;
 `;
 const ModalText = styled.Text`
-  font-size: 30px;
+  font-size: ${WindowWidth / 13.7142}px;
   font-family: insungitCutelivelyjisu;
 `;
 const ModalBtnText = styled.Text`
-  font-size: 15px;
+  font-size: ${WindowWidth / 27.4285}px;
   font-family: insungitCutelivelyjisu;
 `;
+
 const PressView = styled(Animated.createAnimatedComponent(Pressable))``;
 
 const styles = StyleSheet.create({
   wordBoxShadow: {
     backgroundColor: "white",
-    width: 45,
-    height: 45,
+    width: WindowWidth / 9.1428,
+    height: WindowWidth / 9.1428,
     borderRadius: 10,
     borderWidth: 3,
     alignItems: "center",
     justifyContent: "center",
-    marginHorizontal: 5,
-    marginVertical: 5,
+    marginHorizontal: WindowWidth / 82.2857,
+    marginVertical: WindowHeight / 163.3142,
   },
 
   selectBoxShadow: {
     backgroundColor: "white",
-    width: 100,
-    height: 55,
+    width: WindowWidth / 4.1142,
+    height: WindowHeight / 14.8467,
     borderRadius: 30,
     borderWidth: 3,
     alignItems: "center",
     justifyContent: "center",
-    marginHorizontal: 15,
+    marginHorizontal: WindowWidth / 27.4285,
   },
 });
