@@ -16,7 +16,6 @@ import problemList from "../assets/problemList";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { requestPurchase, useIAP, withIAPContext } from "react-native-iap";
 import Modal from "react-native-modal";
 const STORAGE_KEY_RECORD = "@my_record";
 const STORAGE_KEY_COIN = "@my_coins";
@@ -24,26 +23,11 @@ const STORAGE_KEY_BANNER = "@my_banner";
 const WindowWidth = Dimensions.get("window").width;
 const WindowHeight = Dimensions.get("window").height;
 import { Audio } from "expo-av";
-
-const itemSkus = ["1000_coin", "2000_coin", "banner_remove"];
-const shopText = {
-  "1000_coin": { name: "1000코인 충전", cost: "₩1,000" },
-  "2000_coin": { name: "2000코인 충전", cost: "₩2,000" },
-  banner_remove: { name: "배너광고 제거", cost: "₩1,000" },
-};
 const StageSelect = ({ navigation: { navigate, addListener } }) => {
-  const {
-    products,
-    currentPurchase,
-    currentPurchaseError,
-    finishTransaction,
-    getProducts,
-  } = useIAP();
   const [record, setRecord] = useState(
     Array.from({ length: problemList.length }, () => false)
   );
   const [coin, setCoin] = useState(100);
-  const [isShopModalVisible, setIsShopModalVisible] = useState(false);
   const coinData = useRef(0);
   const [clickSound, setClickSound] = useState();
   const scaleArr = useRef(
@@ -80,16 +64,6 @@ const StageSelect = ({ navigation: { navigate, addListener } }) => {
       alert(e);
     }
   };
-  const storeCoinData = async () => {
-    try {
-      await AsyncStorage.setItem(
-        STORAGE_KEY_COIN,
-        JSON.stringify(coinData.current)
-      );
-    } catch (e) {
-      alert(e);
-    }
-  };
   const getCoinData = async () => {
     try {
       const value = await AsyncStorage.getItem(STORAGE_KEY_COIN);
@@ -104,106 +78,12 @@ const StageSelect = ({ navigation: { navigate, addListener } }) => {
       alert(e);
     }
   };
-  const storeBannerData = async () => {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEY_BANNER, JSON.stringify(false));
-    } catch (e) {
-      alert(e);
-    }
-  };
-  const handlePurchase = async (sku) => {
-    console.log("sku", sku);
-
-    try {
-      await requestPurchase({ skus: [sku] });
-    } catch (error) {
-      console.log("request purchase error: ", error);
-    }
-  };
-
-  useEffect(() => {
-    // ... listen to currentPurchaseError, to check if any error happened
-    const USER_CANCEL = "E_USER_CANCELLED";
-    if (currentPurchaseError != undefined) {
-      if (currentPurchaseError.code === USER_CANCEL) {
-        Alert.alert("구매 취소", "구매를 취소하셨습니다.");
-      } else {
-        Alert.alert("구매 실패", "구매 중 오류가 발생하였습니다.");
-      }
-    }
-  }, [currentPurchaseError]);
-
-  useEffect(() => {
-    const checkCurrentPurchase = async (purchase) => {
-      if (purchase) {
-        const receipt = purchase.transactionReceipt;
-        console.log("영수증", receipt);
-        if (receipt)
-          try {
-            const ackResult = await finishTransaction({
-              purchase,
-              isConsumable: true, //false:true
-            });
-            console.log("ackResult", ackResult);
-            if (purchase) givePurchase(purchase.productId);
-          } catch (ackErr) {
-            console.warn("ackErr_StageSelect", ackErr);
-          }
-      }
-    };
-
-    checkCurrentPurchase(currentPurchase);
-  }, [currentPurchase, finishTransaction]);
-  const givePurchase = (itemId) => {
-    if (itemId == itemSkus[0]) {
-      //1000_coin
-      setCoin((prev) => prev + 1000);
-      coinData.current += 1000;
-      storeCoinData();
-    } else if (itemId == itemSkus[1]) {
-      //2000_coin
-      //Math.floor(Math.random() * (max - min + 1)) + min
-      const randValue = Math.floor(Math.random() * (50 - 10 + 1)) + 10; //10~50
-      // console.log("2000코인구매", 2000 + randValue * 10);
-      setCoin((prev) => prev + 2000 + randValue * 10);
-      coinData.current += 2000 + randValue * 10;
-      storeCoinData();
-    } else if (itemId == itemSkus[2]) {
-      storeBannerData();
-    }
-  };
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
       <WindowContainer>
         <StatusBar style="light" backgroundColor="black" />
         <Header>
-          <ShopView>
-            <ShopTextView>
-              <Text
-                style={{
-                  fontFamily: "insungitCutelivelyjisu",
-                  fontSize: WindowWidth / 27.4285,
-                }}
-              >
-                {"코인충전"}
-              </Text>
-            </ShopTextView>
-            <ShopBtn
-              onPress={() => {
-                getProducts({
-                  skus: itemSkus,
-                });
-                setIsShopModalVisible(true);
-              }}
-            >
-              <FontAwesome
-                name="plus-circle"
-                size={WindowWidth / 17.1428}
-                color="#FDB60C"
-              />
-            </ShopBtn>
-          </ShopView>
           <ScoreView>
             <Text
               style={{
@@ -295,59 +175,11 @@ const StageSelect = ({ navigation: { navigate, addListener } }) => {
             );
           }}
         />
-        <Modal
-          isVisible={isShopModalVisible}
-          backdropOpacity={0.4}
-          useNativeDriver={true}
-          animationIn={"pulse"}
-          animationOut={"zoomOut"}
-          onBackdropPress={() => {
-            setIsShopModalVisible(false);
-          }}
-          onBackButtonPress={() => {
-            setIsShopModalVisible(false);
-          }}
-        >
-          <ShopModal>
-            <ShopModalHeader>
-              <Text
-                style={{
-                  fontFamily: "insungitCutelivelyjisu",
-                  fontSize: WindowWidth / 18.7012,
-                }}
-              >
-                {"현재 보유코인 :  " + coin + " 개"}
-              </Text>
-            </ShopModalHeader>
-            <ShopModalContentsContainer>
-              {products.map((product) => (
-                <ShopModalContents key={product.productId}>
-                  <ShopModalContentsTextContainer>
-                    <ShopModalText>
-                      {shopText[product.productId].name}
-                    </ShopModalText>
-
-                    {product.productId == itemSkus[1] ? (
-                      <CostText>{"+랜덤추가지급:0~500"}</CostText>
-                    ) : null}
-                  </ShopModalContentsTextContainer>
-
-                  <ContentsPriceBtn
-                    onPress={() => handlePurchase(product.productId)}
-                  >
-                    <CostText>{shopText[product.productId].cost}</CostText>
-                    <CostText>{"구입"}</CostText>
-                  </ContentsPriceBtn>
-                </ShopModalContents>
-              ))}
-            </ShopModalContentsContainer>
-          </ShopModal>
-        </Modal>
       </WindowContainer>
     </SafeAreaView>
   );
 };
-export default withIAPContext(StageSelect);
+export default StageSelect;
 
 const WindowContainer = styled.View`
   flex: 1;
@@ -377,77 +209,6 @@ const CoinTextView = styled.View`
   justify-content: center;
   align-items: flex-end;
   padding-right: ${WindowWidth / 60}px;
-`;
-const ShopView = styled.View`
-  background-color: white;
-  width: ${WindowWidth / 3.5776}px;
-  height: ${WindowHeight / 27.219}px;
-  border-radius: ${WindowWidth / 16.4571}px;
-  align-items: center;
-  position: absolute;
-  left: 0px;
-  flex-direction: row;
-`;
-const ShopTextView = styled.View`
-  width: ${WindowWidth / 4.6753}px;
-  height: ${WindowHeight / 27.219}px;
-  justify-content: center;
-  align-items: center;
-`;
-const ShopBtn = styled.TouchableOpacity`
-  width: ${WindowWidth / 10.2857}px;
-  height: ${WindowHeight / 20.4142}px;
-  justify-content: center;
-  align-items: center;
-  position: absolute;
-  right: 0px;
-`;
-const ShopModal = styled.View`
-  background-color: lightcoral;
-  width: ${WindowWidth / 1.3714}px;
-  height: ${WindowHeight / 1.6331}px;
-  align-self: center;
-  align-items: center;
-  border-radius: ${WindowWidth / 16.4571}px;
-`;
-const ShopModalHeader = styled.View`
-  margin-top: ${WindowHeight / 81.6571}px;
-  //background-color: red;
-  width: ${WindowWidth / 1.6457}px;
-  height: ${WindowHeight / 11.6653}px;
-  align-self: center;
-  justify-content: center;
-  align-items: center;
-  justify-content: center;
-`;
-const ShopModalContentsContainer = styled.View`
-  //background-color: white;
-  width: ${WindowWidth / 1.6457}px;
-  height: ${WindowHeight / 2.0414}px;
-  align-self: center;
-  justify-content: space-evenly;
-  border-radius: ${WindowWidth / 16.4571}px;
-`;
-const ShopModalContents = styled.View`
-  background-color: #80f0f0;
-  width: ${WindowWidth / 1.6457}px;
-  height: ${WindowHeight / 8.1657}px;
-  align-items: center;
-  justify-content: space-evenly;
-  border-radius: ${WindowWidth / 16.4571}px;
-  flex-direction: row;
-`;
-const ShopModalContentsTextContainer = styled.View`
-  // background-color: white;
-  width: ${WindowWidth / 2.7428}px;
-  height: ${WindowHeight / 8.1657}px;
-  justify-content: center;
-  align-items: center;
-  border-radius: ${WindowWidth / 16.4571}px;
-`;
-const ShopModalText = styled.Text`
-  font-size: ${WindowWidth / 20.5714}px;
-  font-family: insungitCutelivelyjisu;
 `;
 const CostText = styled.Text`
   font-size: ${WindowWidth / 27.4285}px;
