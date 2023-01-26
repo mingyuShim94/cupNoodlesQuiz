@@ -30,7 +30,6 @@ const Home = ({ navigation: { navigate, addListener } }) => {
   const [cupOpen, setCupOpen] = useState(false);
   const [mute, setMute] = useState(false);
   const scaleStartBtn = useRef(new Animated.Value(1)).current;
-  const scaleMuteBtn = useRef(new Animated.Value(1)).current;
   const [bannerShow, setBannerShow] = useState(true);
   const bgmSoundPlay = async (mute) => {
     console.log("Loading Sound");
@@ -99,38 +98,29 @@ const Home = ({ navigation: { navigate, addListener } }) => {
   return (
     <WindowContainer>
       <StatusBar style="light" backgroundColor="black" />
+      <SoundBtn
+        onPress={() => {
+          setMute((prev) => !prev);
+          bgmSoundPlay(mute);
+        }}
+      >
+        {mute
+          ? () => {
+              return (
+                <Octicons name="mute" size={WindowWidth / 10} color="black" />
+              );
+            }
+          : () => {
+              return (
+                <Octicons
+                  name="unmute"
+                  size={WindowWidth / 8.2285}
+                  color="black"
+                />
+              );
+            }}
+      </SoundBtn>
       <GameTitleContainer>
-        <SoundBtn
-          style={{
-            transform: [{ scale: scaleMuteBtn }],
-          }}
-          onPress={() => {
-            setMute((prev) => !prev);
-            bgmSoundPlay(mute);
-          }}
-        >
-          {mute
-            ? () => {
-                scaleMuteBtn.setValue(0.8);
-                return (
-                  <Octicons
-                    name="mute"
-                    size={WindowWidth / 8.2285}
-                    color="black"
-                  />
-                );
-              }
-            : () => {
-                scaleMuteBtn.setValue(1);
-                return (
-                  <Octicons
-                    name="unmute"
-                    size={WindowWidth / 8.2285}
-                    color="black"
-                  />
-                );
-              }}
-        </SoundBtn>
         <GameTitle>{"컵라면 초성퀴즈"}</GameTitle>
       </GameTitleContainer>
       <IllustContainer>
@@ -236,10 +226,16 @@ const GameBtnText = styled.Text`
   font-family: insungitCutelivelyjisu;
   font-size: ${WindowWidth / 16.457}px;
 `;
-const SoundBtn = styled(Animated.createAnimatedComponent(Pressable))`
+const SoundBtn = styled.Pressable`
   position: absolute;
-  top: ${WindowHeight / 23.33}px;
-  right: ${WindowWidth / 41.142}px;
+  width: 80px;
+  height: 80px;
+  align-items: center;
+  justify-content: center;
+  //background-color: red;
+  z-index: 1;
+  top: ${WindowHeight / 30}px;
+  right: ${WindowWidth / 70}px;
 `;
 const AdsContainer = styled.View`
   flex: 0.1;
