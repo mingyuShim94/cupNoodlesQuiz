@@ -1,11 +1,54 @@
-# Sample Snack app
+# 컵라면 초성 퀴즈 앱
 
-Open the `App.js` file to start writing some code. You can preview the changes directly on your phone or tablet by scanning the **QR code** or use the iOS or Android emulators. When you're done, click **Save** and share the link!
+React Native와 Expo를 사용하여 개발한 컵라면 초성 퀴즈 애플리케이션입니다.
 
-When you're ready to see everything that Expo provides (or if you want to use your own editor) you can **Download** your project and use it with [expo-cli](https://docs.expo.io/get-started/installation).
+## 주요 기능
 
-All projects created in Snack are publicly available, so you can easily share the link to this project via link, or embed it on a web page with the `<>` button.
+- **컵라면 퀴즈:** 흐릿하게 처리된 컵라면 이미지를 보고 초성 힌트를 참고하여 정답을 맞힙니다.
+- **스테이지:** 다양한 컵라면 퀴즈가 여러 스테이지에 걸쳐 제공됩니다.
+- **코인 시스템:**
+    - 퀴즈 정답을 맞히거나 광고 시청을 통해 코인을 획득할 수 있습니다.
+    - 획득한 코인으로 퀴즈에 대한 힌트를 얻을 수 있습니다.
+- **인앱 결제 (In-App Purchase):**
+    - 필요에 따라 코인을 직접 구매할 수 있습니다.
+    - 인앱 결제를 통해 배너 광고를 제거하는 기능을 제공합니다.
+- **광고:**
+    - Google AdMob을 연동하여 배너 광고와 보상형 광고를 앱 내에 포함시켰습니다.
+- **공유 기능:**
+    - 친구에게 현재 풀고 있는 퀴즈를 공유하여 도움을 요청할 수 있습니다.
 
-If you're having problems, you can tweet to us [@expo](https://twitter.com/expo) or ask in our [forums](https://forums.expo.io/c/snack).
+## 기술 스택
 
-Snack is Open Source. You can find the code on the [GitHub repo](https://github.com/expo/snack).
+- **프레임워크:** React Native, Expo
+- **상태 관리 및 내비게이션:**
+    - `React Navigation`을 사용하여 화면 간의 이동을 관리합니다.
+    - `AsyncStorage`를 활용하여 사용자의 퀴즈 진행 상황, 코인 수량 등의 데이터를 로컬에 저장합니다.
+- **UI/UX:**
+    - `styled-components`를 사용하여 컴포넌트 기반의 스타일링을 적용했습니다.
+    - `react-native-shadow-2`, `react-native-modal` 등의 라이브러리를 활용하여 사용자 인터페이스를 개선했습니다.
+- **광고 및 인앱 결제:**
+    - `react-native-google-mobile-ads`를 통해 Google AdMob 광고를 연동했습니다.
+    - `react-native-iap`를 사용하여 인앱 결제 기능을 구현했습니다.
+- **기타:**
+    - `expo-av`로 효과음을 재생합니다.
+    - `react-native-share`와 `react-native-view-shot`을 사용하여 화면 공유 기능을 구현했습니다.
+
+## 화면 구성
+
+- **Home:** 앱의 시작 화면으로, 게임 시작 버튼과 사운드 설정 기능이 있습니다.
+- **StageSelect:** 전체 퀴즈 스테이지를 보여주며, 사용자가 원하는 스테이지를 선택하여 게임을 시작할 수 있습니다.
+- **Quiz:**
+    - 컵라면 이미지와 초성 힌트가 주어집니다.
+    - 정답을 입력하고 확인할 수 있습니다.
+    - 코인을 사용하여 힌트를 얻거나, 광고를 시청하여 코인을 충전할 수 있습니다.
+    - 친구에게 문제를 공유하는 기능이 있습니다.
+
+## 실행 방법
+
+```bash
+# 의존성 설치
+npm install
+
+# Expo 서버 실행
+npm start
+```
