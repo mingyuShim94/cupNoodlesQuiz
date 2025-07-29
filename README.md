@@ -68,3 +68,6 @@ npm install
 # Expo 서버 실행
 npm start
 ```
+
+⚠️ 참고: 본 앱은 Android 전용으로 개발되었으며, Google Play Store에 등록되었으나
+3년간 업데이트가 없어 스토어에서 삭제되었습니다. 현재는 설치 링크가 없습니다.
